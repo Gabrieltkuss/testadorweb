@@ -36,6 +36,17 @@
         min-height: 100vh;
       }
 
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none !important;
+        margin: 0 !important;
+      }
+
+      input[type='number'] {
+        -moz-appearance: textfield !important;
+        appearance: textfield !important;
+      }
+
       .text-muted {
         color: var(--text-muted) !important;
       }
@@ -238,7 +249,6 @@
                     name="ip"
                     id="target_ip"
                     class="form-control"
-                    placeholder="8.8.8.8"
                     value="{{ ip }}"
                     required
                   />
@@ -250,7 +260,6 @@
                     name="port"
                     id="target_port"
                     class="form-control"
-                    placeholder="443"
                     value="{{ port }}"
                   />
                 </div>
