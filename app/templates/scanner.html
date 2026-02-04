@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PortScanner Pro | Gabriel Kuss</title>
+    <title>KssScanner Pro | Diagnóstico de Rede</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link
@@ -13,169 +13,411 @@
       rel="stylesheet"
     />
     <style>
-      body {
-        background: #f4f7f9;
-        font-family: 'Inter', sans-serif;
-        color: #2d3748;
-      }
-      .navbar {
-        background: #1a202c;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      }
-      .main-card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-        background: white;
+      :root {
+        --bg-deep: #0f172a;
+        --bg-card: #1e293b;
+        --accent: #3182ce;
+        --accent-hover: #4299e1;
+        --danger: #ef4444;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --input-bg: rgba(15, 23, 42, 0.6);
       }
 
-      /* Estilo da Seção de IP do Usuário */
-      .user-ip-section {
-        background: #edf2f7;
-        border-radius: 8px;
-        padding: 10px 15px;
-        display: inline-flex;
+      body {
+        background-color: var(--bg-deep);
+        background-image: radial-gradient(
+          circle at 50% 0%,
+          #1e293b 0%,
+          #0f172a 100%
+        );
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: var(--text-main);
+        min-height: 100vh;
+      }
+
+      .text-muted {
+        color: var(--text-muted) !important;
+      }
+
+      .main-card {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        background: var(--bg-card);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      }
+
+      .section-title {
+        color: white;
+        font-weight: 700;
+        font-size: 1.25rem;
+        display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-        border: 1px solid #e2e8f0;
+        margin-bottom: 2rem;
       }
-      .ip-label {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #718096;
-        text-transform: uppercase;
-      }
-      .ip-value {
-        font-family: 'Fira Code', monospace;
-        color: #2b6cb0;
-        font-weight: 600;
+      .section-title::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        background: var(--accent);
+        border-radius: 50%;
       }
 
-      .form-label {
+      .user-ip-section {
+        background: var(--input-bg);
+        border-radius: 10px;
+        padding: 8px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 30px;
+      }
+
+      .button-container {
+        position: relative;
+        height: 48px;
+      }
+      .btn-action {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
         font-weight: 600;
-        font-size: 0.9rem;
-        color: #4a5568;
-      }
-      .form-control {
         border-radius: 8px;
-        padding: 12px;
-        border: 1px solid #e2e8f0;
-      }
-      .btn-primary {
-        background: #3182ce;
         border: none;
-        padding: 12px;
-        font-weight: 700;
-        border-radius: 8px;
-        text-transform: uppercase;
-        transition: 0.3s;
-      }
-      .btn-primary:hover {
-        background: #2b6cb0;
-        transform: translateY(-1px);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
-      .result-badge {
-        border-radius: 8px;
+      .btn-testar {
+        background: var(--accent);
+        color: white;
+        z-index: 2;
+      }
+      .btn-parar {
+        background: var(--danger);
+        color: white;
+        z-index: 1;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .is-running .btn-testar {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .is-running .btn-parar {
+        opacity: 1;
+        pointer-events: auto;
+        z-index: 3;
+      }
+
+      .form-control {
+        background: var(--input-bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 12px;
+      }
+      .form-control:focus {
+        background: var(--bg-deep);
+        border-color: var(--accent);
+        color: white;
+        box-shadow: none;
+      }
+
+      .terminal-wrapper {
+        background: #000;
+        border-radius: 12px;
+        margin-top: 30px;
+        border: 1px solid #334155;
+        overflow: hidden;
+      }
+      .terminal-box {
+        color: #10b981;
+        font-family: 'Fira Code', monospace;
+        padding: 20px;
+        height: 400px;
+        font-size: 0.8rem;
+        overflow-y: auto;
+        white-space: pre; /* Crucial para o alinhamento do MTR */
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-top: 40px;
+      }
+      .info-box {
+        background: rgba(15, 23, 42, 0.3);
+        border-radius: 12px;
         padding: 20px;
         text-align: center;
-        border-left: 5px solid;
+        border: 1px solid rgba(255, 255, 255, 0.03);
       }
-      .badge-open {
-        background: #f0fff4;
-        color: #276749;
-        border-left-color: #38a169;
-      }
-      .badge-closed {
-        background: #fff5f5;
-        color: #9b2c2c;
-        border-left-color: #e53e3e;
+      .info-box .icon {
+        font-size: 1.5rem;
+        color: var(--accent);
+        margin-bottom: 10px;
+        display: block;
       }
     </style>
   </head>
   <body>
-    <nav class="navbar navbar-dark mb-5">
-      <div class="container">
-        <span class="navbar-brand mb-0 h1"
-          >🛡️ KssScanner <span class="text-info">Pro</span></span
-        >
-      </div>
-    </nav>
-
-    <div class="container">
+    <div class="container py-5">
       <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-          <div class="card main-card p-4">
-            <div class="text-center">
-              <div class="user-ip-section">
-                <span class="ip-label">Seu IP:</span>
-                <span class="ip-value">{{ user_ip }}</span>
-              </div>
+        <div class="col-md-11 col-lg-9">
+          <div class="card main-card p-4 p-lg-5">
+            <div class="section-title">
+              KssScanner Pro | Diagnóstico de Rede
             </div>
 
-            <div class="text-center mb-4">
-              <h3 class="fw-bold">Testar Porta TCP</h3>
-              <p class="text-muted small">
-                Verifique a conectividade de um host instantaneamente.
-              </p>
+            <div
+              class="user-ip-section d-flex justify-content-between align-items-center"
+            >
+              <span class="text-white small fw-bold">SEU IP ATUAL:</span>
+              <span class="font-monospace text-info fw-bold"
+                >{{ user_ip }}</span
+              >
             </div>
 
-            <form method="POST">
+            <ul
+              class="nav nav-pills nav-fill mb-4"
+              style="
+                background: var(--bg-deep);
+                padding: 5px;
+                border-radius: 12px;
+              "
+            >
+              <li class="nav-item">
+                <button
+                  class="nav-link active text-white"
+                  id="tab-port"
+                  onclick="setTest('port')"
+                >
+                  Porta Única
+                </button>
+              </li>
+              <li class="nav-item">
+                <button
+                  class="nav-link text-white"
+                  id="tab-ping"
+                  onclick="setTest('ping_tcp')"
+                >
+                  Ping TCP
+                </button>
+              </li>
+              <li class="nav-item">
+                <button
+                  class="nav-link text-white"
+                  id="tab-mtr"
+                  onclick="setTest('mtr')"
+                >
+                  MTR Route
+                </button>
+              </li>
+            </ul>
+
+            <form id="diagnosticoForm" method="POST">
               {% csrf_token %}
-              <div class="mb-3">
-                <label class="form-label">Endereço IP ou Domínio</label>
-                <input
-                  type="text"
-                  name="ip"
-                  class="form-control"
-                  placeholder="ex: google.com"
-                  value="{{ ip }}"
-                  required
-                />
+              <input
+                type="hidden"
+                name="test_type"
+                id="test_type"
+                value="port"
+              />
+              <div class="row g-3 align-items-end">
+                <div class="col-sm-6">
+                  <label class="form-label text-muted small"
+                    >IP ou Domínio</label
+                  >
+                  <input
+                    type="text"
+                    name="ip"
+                    id="target_ip"
+                    class="form-control"
+                    placeholder="8.8.8.8"
+                    value="{{ ip }}"
+                    required
+                  />
+                </div>
+                <div class="col-sm-3" id="port-group">
+                  <label class="form-label text-muted small">Porta</label>
+                  <input
+                    type="number"
+                    name="port"
+                    id="target_port"
+                    class="form-control"
+                    placeholder="443"
+                    value="{{ port }}"
+                  />
+                </div>
+                <div class="col-sm-3">
+                  <div class="button-container" id="action-wrapper">
+                    <button
+                      type="submit"
+                      class="btn-action btn-testar"
+                      id="btnSubmit"
+                    >
+                      Testar
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-action btn-parar"
+                      id="btnStop"
+                      onclick="stopDiagnostic()"
+                    >
+                      Parar
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="mb-4">
-                <label class="form-label">Porta de Destino</label>
-                <input
-                  type="number"
-                  name="port"
-                  class="form-control"
-                  placeholder="80"
-                  value="{{ port }}"
-                  required
-                />
-              </div>
-              <button type="submit" class="btn btn-primary w-100 mb-2">
-                Executar Scanner
-              </button>
             </form>
 
-            {% if status %}
-            <div class="mt-4">
-              {% if status == 'Aberta' %}
-              <div class="result-badge badge-open">
-                <h5 class="mb-1">
-                  ✅ Porta {{ port }} <strong>ABERTA</strong>
-                </h5>
-                <small>Sucesso em {{ ip }}</small>
-              </div>
-              {% else %}
-              <div class="result-badge badge-closed">
-                <h5 class="mb-1">
-                  🚫 Porta {{ port }} <strong>FECHADA</strong>
-                </h5>
-                <small>Recusada ou filtrada em {{ ip }}</small>
+            <div id="sync-result">
+              {% if status %}
+              <div
+                class="mt-4 p-4 rounded-3 text-center {% if status == 'Aberta' %}bg-success-subtle text-success border-success{% else %}bg-danger-subtle text-danger border-danger{% endif %} border border-1"
+              >
+                <h4 class="mb-0">
+                  Porta {{ port }}: <strong>{{ status|upper }}</strong>
+                </h4>
               </div>
               {% endif %}
             </div>
-            {% endif %}
-          </div>
 
-          <p class="text-center mt-4 text-muted small">
+            <div class="info-grid" id="welcome-msg">
+              <div class="info-box">
+                <span class="icon">🛡️</span>
+                <h6>Seguro</h6>
+                <p class="small text-muted">Criptografado</p>
+              </div>
+              <div class="info-box">
+                <span class="icon">🕒</span>
+                <h6>Rápido</h6>
+                <p class="small text-muted">Tempo Real</p>
+              </div>
+              <div class="info-box">
+                <span class="icon">🌐</span>
+                <h6>Gratuito</h6>
+                <p class="small text-muted">Sem custos</p>
+              </div>
+            </div>
+
+            <div id="realtime-result" class="d-none">
+              <div class="terminal-wrapper">
+                <div class="terminal-box" id="terminal-content"></div>
+              </div>
+            </div>
+          </div>
+          <p class="text-center mt-4 text-white small">
             Utilize com responsabilidade. © 2026 - Gabriel Kuss
           </p>
         </div>
       </div>
     </div>
+
+    <script>
+      let isRunning = false;
+      let currentController = null;
+
+      function stopDiagnostic() {
+        if (currentController) {
+          currentController.abort();
+          isRunning = false;
+          resetUI();
+          document.getElementById('terminal-content').innerText +=
+            '\n\n[SISTEMA] Execução parada.';
+        }
+      }
+
+      function resetUI() {
+        document
+          .getElementById('action-wrapper')
+          .classList.remove('is-running');
+        document.getElementById('btnSubmit').disabled = false;
+      }
+
+      function setTest(type) {
+        if (isRunning) return;
+        document.getElementById('test_type').value = type;
+        const pg = document.getElementById('port-group');
+        const tip = document.getElementById('target_ip').parentElement;
+
+        if (type === 'mtr') {
+          pg.classList.add('d-none');
+          tip.className = 'col-sm-9';
+        } else {
+          pg.classList.remove('d-none');
+          tip.className = 'col-sm-6';
+        }
+
+        document
+          .querySelectorAll('.nav-link')
+          .forEach((n) => n.classList.remove('active'));
+        document
+          .getElementById('tab-' + (type === 'ping_tcp' ? 'ping' : type))
+          .classList.add('active');
+        document.getElementById('sync-result').innerHTML = '';
+        document.getElementById('realtime-result').classList.add('d-none');
+        document.getElementById('welcome-msg').classList.remove('d-none');
+      }
+
+      document.getElementById('diagnosticoForm').onsubmit = async function (e) {
+        const type = document.getElementById('test_type').value;
+        if (type === 'port') return true;
+
+        e.preventDefault();
+        if (isRunning) return;
+
+        isRunning = true;
+        currentController = new AbortController();
+
+        document.getElementById('action-wrapper').classList.add('is-running');
+        document.getElementById('welcome-msg').classList.add('d-none');
+        document.getElementById('sync-result').innerHTML = '';
+        document.getElementById('realtime-result').classList.remove('d-none');
+
+        const terminal = document.getElementById('terminal-content');
+        terminal.innerText = '> Iniciando diagnóstico...\n';
+
+        try {
+          const response = await fetch('', {
+            method: 'POST',
+            body: new FormData(this),
+            signal: currentController.signal,
+          });
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            let chunk = decoder.decode(value);
+
+            // Lógica para MTR: se receber o sinalizador de topo, substitui o conteúdo
+            if (chunk.includes('\x1b[H')) {
+              terminal.innerText = chunk.replace('\x1b[H', '');
+              terminal.scrollTop = 0; // Mantém o cabeçalho visível
+            } else {
+              terminal.innerText += chunk;
+              // No Ping, faz scroll automático para o fim
+              if (type === 'ping_tcp')
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError')
+            terminal.innerText += '\n[ERRO] Falha na rede.';
+        } finally {
+          isRunning = false;
+          resetUI();
+        }
+      };
+    </script>
   </body>
 </html>
