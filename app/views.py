@@ -10,7 +10,7 @@ from django.http import StreamingHttpResponse
 
 def check_port(ip, port, timeout=1):
     try:
-        # Validação do intervalo de porta
+        # Trava de Segurança: Converte e valida o range real de portas TCP
         port_int = int(port)
         if not (1 <= port_int <= 65535):
             return False, 0
@@ -19,6 +19,7 @@ def check_port(ip, port, timeout=1):
         sock.settimeout(timeout)
         
         start = time.perf_counter()
+        # connect() é necessário para medir RTT real (handshake completo)
         sock.connect((ip, port_int))
         end = time.perf_counter()
         
@@ -29,19 +30,18 @@ def check_port(ip, port, timeout=1):
         return False, 0
 
 def tcp_ping_generator(ip, port):
-    # Validação inicial antes de iniciar o loop
     try:
-        port_int = int(port)
-        if not (1 <= port_int <= 65535):
-            yield f"Erro: Porta {port} inválida. Use um intervalo entre 1 e 65535.\n"
+        p_int = int(port)
+        if not (1 <= p_int <= 65535):
+            yield f"Erro: Porta {port} fora do limite (1-65535).\n"
             return
-    except ValueError:
+    except:
         yield "Erro: Porta inválida.\n"
         return
 
-    yield f"--- Iniciando Ping TCP em {ip}:{port_int} ---\n\n"
+    yield f"--- Iniciando Ping TCP em {ip}:{p_int} ---\n\n"
     for i in range(1, 21):
-        success, ms = check_port(ip, port_int)
+        success, ms = check_port(ip, p_int)
         status = "ABERTA" if success else "FALHA/TIMEOUT"
         yield f"Seq {i}: Resposta de {ip} | Status={status} | Tempo={ms}ms\n"
         time.sleep(0.5)
@@ -146,23 +146,19 @@ def mtr_generator(target_ip):
 # --- VIEW PRINCIPAL ---
 
 def port_scanner(request):
+    # Lógica de POST idêntica, chamando as funções validadas acima
     user_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')).split(',')[0]
-    
     if request.method == "POST":
         target_ip = request.POST.get('ip')
         target_port = request.POST.get('port', 80)
         test_type = request.POST.get('test_type')
-
         if test_type == "ping_tcp":
             return StreamingHttpResponse(tcp_ping_generator(target_ip, target_port), content_type='text/plain')
-        
         if test_type == "mtr":
             return StreamingHttpResponse(mtr_generator(target_ip), content_type='text/plain')
-
-        # Porta Única (Síncrono)
-        status = "Aberta" if check_port(target_ip, target_port) else "Fechada ou Filtrada"
-        return render(request, 'scanner.html', {
-            'status': status, 'ip': target_ip, 'port': target_port, 'user_ip': user_ip, 'test_type': 'port'
-        })
-
-    return render(request, 'scanner.html', {'user_ip': user_ip, 'test_type': 'port'})
+        
+        # Teste Único: Valida antes de renderizar
+        success, _ = check_port(target_ip, target_port)
+        status = "Aberta" if success else "Fechada ou Filtrada"
+        return render(request, 'scanner.html', {'status': status, 'ip': target_ip, 'port': target_port, 'user_ip': user_ip})
+    return render(request, 'scanner.html', {'user_ip': user_ip})
