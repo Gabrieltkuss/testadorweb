@@ -9,53 +9,70 @@ from django.http import StreamingHttpResponse
 # --- UTILITÁRIOS ---
 
 def check_port(ip, port, timeout=1):
+    """
+    Versão aprimorada com medição de tempo de alta precisão.
+    """
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
+        
+        # Início da medição de precisão
+        start = time.perf_counter()
         result = sock.connect_ex((ip, int(port)))
+        end = time.perf_counter()
+        
         sock.close()
-        return result == 0
+        # Retorna o resultado e o tempo em milissegundos
+        latency = round((end - start) * 1000, 2)
+        return result == 0, latency
     except:
-        return False
+        return False, 0
 
 def get_route_fast(ip):
-    # -d (não resolve DNS), -h 15 (máximo de saltos), -w 200 (timeout curto)
-    cmd = ['tracert', '-d', '-h', '15', '-w', '200', ip]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, shell=True)
-    hops = []
+    if platform.system().lower() == 'windows':
+        cmd = f"tracert -d -h 15 -w 200 {ip}" # -w 200 acelera se houver perda
+    else:
+        cmd = f"traceroute -n -m 15 -w 1 {ip}"
+
+    try:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        output, _ = process.communicate(timeout=20)
+        lines = output.splitlines()
+        
+        hops = []
+        for line in lines:
+            # Ignora a linha de cabeçalho que contém o IP de destino
+            if "Rastreando" in line or "Tracing" in line or not line.strip():
+                continue
+            
+            # Captura o IP apenas se a linha começar com um número (o número do salto)
+            # Isso evita pegar o IP do cabeçalho
+            match_hop_num = re.search(r'^\s*(\d+)', line)
+            if match_hop_num:
+                match_ip = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)
+                if match_ip:
+                    ip_found = match_ip.group(1)
+                    if ip_found not in hops:
+                        hops.append(ip_found)
+                else:
+                    # Se houver o número do salto mas não o IP (* * *), marca como desconhecido
+                    hops.append(f"Unknown-{len(hops)+1}")
+        
+        # Garante que o IP de destino esteja no final se o tracert falhar em listar tudo
+        if ip not in hops:
+            hops.append(ip)
+            
+        return hops
+    except Exception:
+        return [ip]
     
-    output, _ = process.communicate()
-    lines = output.splitlines()
-    
-    hop_count = 1
-    for line in lines:
-        # Ignora cabeçalhos
-        if "rastreando" in line.lower() or "tracing" in line.lower() or not line.strip():
-            continue
-            
-        # Procura por um número de salto no início da linha (ex: "  1    1ms ...")
-        match_hop = re.search(r'^\s*(\d+)', line)
-        if match_hop:
-            # Tenta encontrar um IP na linha
-            match_ip = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)
-            
-            if match_ip:
-                hops.append(match_ip.group(1))
-            else:
-                # Se tem o número do salto mas não tem IP, é um nó que não respondeu
-                hops.append(f"Unknown-{hop_count}")
-            
-            hop_count += 1
-            
-    return hops
 # --- GERADORES (STREAMING) ---
 
 def tcp_ping_generator(ip, port):
     yield f"--- Iniciando Ping TCP em {ip}:{port} ---\n\n"
     for i in range(1, 21):
-        start = time.time()
-        success = check_port(ip, port)
-        ms = round((time.time() - start) * 1000, 2)
+        # A função check_port agora já retorna a latência medida internamente
+        success, ms = check_port(ip, port)
         
         status = "ABERTA" if success else "FALHA/TIMEOUT"
         yield f"Seq {i}: Resposta de {ip} | Status={status} | Tempo={ms}ms\n"
