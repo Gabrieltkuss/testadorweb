@@ -9,61 +9,50 @@ from django.http import StreamingHttpResponse
 # --- UTILITÁRIOS ---
 
 def check_port(ip, port, timeout=1):
-    """
-    Versão aprimorada com medição de tempo de alta precisão.
-    """
     try:
+        # Usamos AF_INET e SOCK_STREAM para garantir um handshake TCP real
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         
-        # Início da medição de precisão
         start = time.perf_counter()
-        result = sock.connect_ex((ip, int(port)))
+        # O connect() força o sistema a esperar o ACK do destino
+        sock.connect((ip, int(port)))
         end = time.perf_counter()
         
         sock.close()
-        # Retorna o resultado e o tempo em milissegundos
-        latency = round((end - start) * 1000, 2)
-        return result == 0, latency
+        latency = (end - start) * 1000
+        # Se der menos de 0.5ms, provavelmente é localhost ou erro de precisão
+        return True, round(max(latency, 0.1), 2)
     except:
         return False, 0
 
 def get_route_fast(ip):
-    if platform.system().lower() == 'windows':
-        cmd = f"tracert -d -h 15 -w 200 {ip}" # -w 200 acelera se houver perda
+    is_windows = platform.system().lower() == 'windows'
+    
+    # No Linux, o traceroute padrão pode falhar sem privilégios. 
+    # Usamos o 'mtr' ou 'traceroute -I' (ICMP) se disponível, 
+    # mas o comando mais seguro é o traceroute padrão com timeout curto.
+    if is_windows:
+        cmd = f"tracert -d -h 15 -w 200 {ip}"
     else:
-        cmd = f"traceroute -n -m 15 -w 1 {ip}"
+        # -n (no DNS), -m 15 (max hops), -q 1 (um teste por salto para ser rápido)
+        cmd = f"traceroute -n -m 15 -q 1 -w 1 {ip}"
 
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
-        output, _ = process.communicate(timeout=20)
-        lines = output.splitlines()
+        output, _ = process.communicate(timeout=15)
         
         hops = []
-        for line in lines:
-            # Ignora a linha de cabeçalho que contém o IP de destino
-            if "Rastreando" in line or "Tracing" in line or not line.strip():
-                continue
-            
-            # Captura o IP apenas se a linha começar com um número (o número do salto)
-            # Isso evita pegar o IP do cabeçalho
-            match_hop_num = re.search(r'^\s*(\d+)', line)
-            if match_hop_num:
-                match_ip = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)
-                if match_ip:
-                    ip_found = match_ip.group(1)
-                    if ip_found not in hops:
-                        hops.append(ip_found)
-                else:
-                    # Se houver o número do salto mas não o IP (* * *), marca como desconhecido
-                    hops.append(f"Unknown-{len(hops)+1}")
+        for line in re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', output):
+            # Ignora o IP do cabeçalho do comando
+            if line != ip and line not in hops:
+                hops.append(line)
         
-        # Garante que o IP de destino esteja no final se o tracert falhar em listar tudo
+        # Garante o destino no fim
         if ip not in hops:
             hops.append(ip)
-            
         return hops
-    except Exception:
+    except:
         return [ip]
     
 # --- GERADORES (STREAMING) ---
@@ -81,31 +70,25 @@ def tcp_ping_generator(ip, port):
 
 def check_node_life(ip, timeout=400):
     """
-    Usa o comando PING do sistema para medir a latência real.
-    Retorna (is_alive, ms)
+    Versão compatível com Linux e Windows para servidores de deploy.
     """
-    # Define o parâmetro de contagem baseado no SO
-    param = '-n' if platform.system().lower() == 'windows' else '-c'
-    # Define o timeout (no Windows é em ms, no Linux em segundos)
-    timeout_param = '-w' if platform.system().lower() == 'windows' else '-W'
+    is_windows = platform.system().lower() == 'windows'
+    # No Linux, usamos -W (segundos), no Windows -w (ms)
+    t_val = str(timeout) if is_windows else str(max(1, timeout // 1000))
+    param = '-n' if is_windows else '-c'
+    t_param = '-w' if is_windows else '-W'
     
-    cmd = ['ping', param, '1', timeout_param, str(timeout), ip]
+    cmd = ['ping', param, '1', t_param, t_val, ip]
     
-    start = time.time()
+    start = time.perf_counter()
     try:
-        # Executa silenciosamente
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, shell=True)
-        ms = int((time.time() - start) * 1000)
-        
-        # Tenta extrair o tempo real do output do ping se quiser precisão absoluta
-        match = re.search(r"tempo[=<](\d+)ms|time[=<](\d+)", output)
-        if match:
-            ms = int(match.group(1) or match.group(2))
-            
-        return True, ms
-    except Exception:
+        # shell=False é mais seguro e rápido em produção
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+        ms = (time.perf_counter() - start) * 1000
+        return True, int(ms)
+    except:
         return False, 0
-
+    
 def mtr_generator(target_ip):
     hops = get_route_fast(target_ip)
     if not hops:
