@@ -13,11 +13,17 @@ def port_scanner(request):
     target_ip = ""
     target_port = ""
 
+    # Captura o IP do usuário
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        user_ip = x_forwarded_for.split(',')[0]
+    else:
+        user_ip = request.META.get('REMOTE_ADDR')
+
     if request.method == "POST":
         target_ip = request.POST.get('ip')
         target_port = request.POST.get('port')
         
-        # Chama a função check_port aqui dentro
         if check_port(target_ip, target_port):
             status = "Aberta"
         else:
@@ -26,6 +32,6 @@ def port_scanner(request):
     return render(request, 'scanner.html', {
         'status': status, 
         'ip': target_ip, 
-        'port': target_port
+        'port': target_port,
+        'user_ip': user_ip  # Enviando o IP para o HTML
     })
-

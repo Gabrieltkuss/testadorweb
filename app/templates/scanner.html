@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PortScanner Pro | Testador de Rede</title>
+    <title>PortScanner Pro | Gabriel Kuss</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link
@@ -27,8 +27,31 @@
         border-radius: 12px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
         background: white;
-        transition: transform 0.2s;
       }
+
+      /* Estilo da Seção de IP do Usuário */
+      .user-ip-section {
+        background: #edf2f7;
+        border-radius: 8px;
+        padding: 10px 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+      }
+      .ip-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #718096;
+        text-transform: uppercase;
+      }
+      .ip-value {
+        font-family: 'Fira Code', monospace;
+        color: #2b6cb0;
+        font-weight: 600;
+      }
+
       .form-label {
         font-weight: 600;
         font-size: 0.9rem;
@@ -39,10 +62,6 @@
         padding: 12px;
         border: 1px solid #e2e8f0;
       }
-      .form-control:focus {
-        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
-        border-color: #4299e1;
-      }
       .btn-primary {
         background: #3182ce;
         border: none;
@@ -50,11 +69,13 @@
         font-weight: 700;
         border-radius: 8px;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        transition: 0.3s;
       }
       .btn-primary:hover {
         background: #2b6cb0;
+        transform: translateY(-1px);
       }
+
       .result-badge {
         border-radius: 8px;
         padding: 20px;
@@ -86,9 +107,16 @@
       <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
           <div class="card main-card p-4">
+            <div class="text-center">
+              <div class="user-ip-section">
+                <span class="ip-label">Seu IP Local/Público:</span>
+                <span class="ip-value">{{ user_ip }}</span>
+              </div>
+            </div>
+
             <div class="text-center mb-4">
               <h3 class="fw-bold">Testar Porta TCP</h3>
-              <p class="text-muted">
+              <p class="text-muted small">
                 Verifique a conectividade de um host instantaneamente.
               </p>
             </div>
@@ -101,7 +129,7 @@
                   type="text"
                   name="ip"
                   class="form-control"
-                  placeholder="ex: google.com ou 8.8.8.8"
+                  placeholder="ex: google.com"
                   value="{{ ip }}"
                   required
                 />
@@ -112,7 +140,7 @@
                   type="number"
                   name="port"
                   class="form-control"
-                  placeholder="ex: 80, 443, 22"
+                  placeholder="80"
                   value="{{ port }}"
                   required
                 />
@@ -123,22 +151,20 @@
             </form>
 
             {% if status %}
-            <div class="mt-4 animate__animated animate__fadeIn">
+            <div class="mt-4">
               {% if status == 'Aberta' %}
               <div class="result-badge badge-open">
                 <h5 class="mb-1">
-                  ✅ Porta {{ port }} está <strong>ABERTA</strong>!
+                  ✅ Porta {{ port }} <strong>ABERTA</strong>
                 </h5>
-                <small>Conexão estabelecida com sucesso em {{ ip }}.</small>
+                <small>Sucesso em {{ ip }}</small>
               </div>
               {% else %}
               <div class="result-badge badge-closed">
                 <h5 class="mb-1">
-                  🚫 Porta {{ port }} está <strong>FECHADA</strong>
+                  🚫 Porta {{ port }} <strong>FECHADA</strong>
                 </h5>
-                <small
-                  >O host em {{ ip }} recusou a conexão ou está filtrado.</small
-                >
+                <small>Recusada ou filtrada em {{ ip }}</small>
               </div>
               {% endif %}
             </div>
@@ -146,12 +172,10 @@
           </div>
 
           <p class="text-center mt-4 text-muted small">
-            Utilize com responsabilidade. © 2026 - Desenvolvido por Gabriel Kuss
+            Utilize com responsabilidade. © 2026 - Gabriel Kuss
           </p>
         </div>
       </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
