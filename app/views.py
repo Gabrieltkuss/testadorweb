@@ -10,63 +10,77 @@ from django.http import StreamingHttpResponse
 
 def check_port(ip, port, timeout=1):
     try:
-        # Usamos AF_INET e SOCK_STREAM para garantir um handshake TCP real
+        # Validação do intervalo de porta
+        port_int = int(port)
+        if not (1 <= port_int <= 65535):
+            return False, 0
+            
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         
         start = time.perf_counter()
-        # O connect() força o sistema a esperar o ACK do destino
-        sock.connect((ip, int(port)))
+        sock.connect((ip, port_int))
         end = time.perf_counter()
         
         sock.close()
         latency = (end - start) * 1000
-        # Se der menos de 0.5ms, provavelmente é localhost ou erro de precisão
-        return True, round(max(latency, 0.1), 2)
+        return True, round(latency, 2)
     except:
         return False, 0
+
+def tcp_ping_generator(ip, port):
+    # Validação inicial antes de iniciar o loop
+    try:
+        port_int = int(port)
+        if not (1 <= port_int <= 65535):
+            yield f"Erro: Porta {port} inválida. Use um intervalo entre 1 e 65535.\n"
+            return
+    except ValueError:
+        yield "Erro: Porta inválida.\n"
+        return
+
+    yield f"--- Iniciando Ping TCP em {ip}:{port_int} ---\n\n"
+    for i in range(1, 21):
+        success, ms = check_port(ip, port_int)
+        status = "ABERTA" if success else "FALHA/TIMEOUT"
+        yield f"Seq {i}: Resposta de {ip} | Status={status} | Tempo={ms}ms\n"
+        time.sleep(0.5)
+    yield "\n--- Teste Concluído ---"
 
 def get_route_fast(ip):
     is_windows = platform.system().lower() == 'windows'
     
-    # No Linux, o traceroute padrão pode falhar sem privilégios. 
-    # Usamos o 'mtr' ou 'traceroute -I' (ICMP) se disponível, 
-    # mas o comando mais seguro é o traceroute padrão com timeout curto.
     if is_windows:
         cmd = f"tracert -d -h 15 -w 200 {ip}"
     else:
-        # -n (no DNS), -m 15 (max hops), -q 1 (um teste por salto para ser rápido)
+        # No Linux, tentamos o traceroute padrão. 
+        # Se falhar, o fallback será o próprio IP.
         cmd = f"traceroute -n -m 15 -q 1 -w 1 {ip}"
 
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
         output, _ = process.communicate(timeout=15)
         
+        # Regex mais robusta para pegar IPs de cada linha do salto
         hops = []
-        for line in re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', output):
-            # Ignora o IP do cabeçalho do comando
-            if line != ip and line not in hops:
-                hops.append(line)
-        
-        # Garante o destino no fim
-        if ip not in hops:
-            hops.append(ip)
+        lines = output.splitlines()
+        for line in lines:
+            if any(char.isdigit() for char in line[:3]): # Verifica se a linha começa com o número do salto
+                match = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)
+                if match:
+                    ip_found = match.group(1)
+                    if ip_found not in hops:
+                        hops.append(ip_found)
+                elif "*" in line:
+                    hops.append(f"Unknown-{len(hops)+1}")
+
+        if not hops:
+            return [ip]
         return hops
     except:
         return [ip]
     
 # --- GERADORES (STREAMING) ---
-
-def tcp_ping_generator(ip, port):
-    yield f"--- Iniciando Ping TCP em {ip}:{port} ---\n\n"
-    for i in range(1, 21):
-        # A função check_port agora já retorna a latência medida internamente
-        success, ms = check_port(ip, port)
-        
-        status = "ABERTA" if success else "FALHA/TIMEOUT"
-        yield f"Seq {i}: Resposta de {ip} | Status={status} | Tempo={ms}ms\n"
-        time.sleep(0.5)
-    yield "\n--- Teste Concluído ---"
 
 def check_node_life(ip, timeout=400):
     """
